@@ -1,0 +1,57 @@
+.Hook {
+    height: 100%;
+    width: 100%;
+}
+
+.Parent {
+    width: 100vw;
+    height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 3fr;
+}
+
+.Display {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    justify-content: center;
+    align-items: center;
+}
+
+.Display>div {
+    width: 100%;
+    height: 100%;
+}
+
+.Link-Container {
+    padding: 15px;
+    border-radius: 20px;
+    -webkit-border-radius: 20px;
+    -moz-border-radius: 20px;
+    -ms-border-radius: 20px;
+    -o-border-radius: 20px;
+    border: 2px solid white;
+}
+
+.Link-Container>a {
+    font-size: 1.5em;
+    color: pink
+}
+
+.Link-Container>a:hover {
+    font-size: 1.8em;
+}
+
+.Tab-container {
+    display: grid;
+    justify-items: center;
+    align-content: space-evenly;
+    grid-template-columns: 1fr;
+    background-color: black;
+}
+
+.Link-Container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}

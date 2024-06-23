@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devsecops
+spec:
+  selector:
+    matchLabels:
+      app: devsecops
+  replicas: 3
+  strategy: 
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: devsecops
+        version: "1.0"
+    spec:
+      containers:
+        - name: devsecops
+          image: ${IMAGE_TAG}
+          ports:
+            - containerPort: 80

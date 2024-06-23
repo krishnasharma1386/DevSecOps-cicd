@@ -1,0 +1,28 @@
+ul {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    text-decoration: none;
+    list-style-type: none;
+}
+
+nav {
+    /* height: 5vh; */
+    position: fixed;
+    background-color: black;
+    width: 100%;
+    top: 0;
+    padding: 5px;
+}
+
+.link {
+    text-decoration: none;
+    color: pink;
+    cursor: pointer;
+    font-size: 1.2rem;
+}
+
+.link:hover {
+    font-size: 1.3rem;
+}

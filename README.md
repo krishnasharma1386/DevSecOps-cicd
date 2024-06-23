@@ -120,7 +120,7 @@ This guide details the setup of a DevSecOps pipeline using Jenkins, Docker, Mini
         }
         environment {
             SCANNER_HOME = tool 'sonar-scanner'
-            IMAGE_TAG = "dhruv203/demo:${BUILD_NUMBER}"
+            IMAGE_TAG = "user203/demo:${BUILD_NUMBER}"
         }
         stages {
             stage('clean workspace'){
@@ -130,7 +130,7 @@ This guide details the setup of a DevSecOps pipeline using Jenkins, Docker, Mini
             }
             stage('Checkout from Git'){
                 steps{
-                    git 'https://github.com/dhruv-203/DevSecOps.git'
+                    git 'https://github.com/user-203/DevSecOps.git'
                 }
             }
             stage("Sonarqube Analysis "){
@@ -227,7 +227,7 @@ This guide details the setup of a DevSecOps pipeline using Jenkins, Docker, Mini
     }
     stage("TRIVY"){
         steps{
-            sh "trivy image --timeout 15m --scanners vuln dhruv203/demo:latest > trivy.txt"
+            sh "trivy image --timeout 15m --scanners vuln user203/demo:latest > trivy.txt"
         }
     }
     ```
@@ -254,3 +254,195 @@ This guide details the setup of a DevSecOps pipeline using Jenkins, Docker, Mini
                 sh "sudo kubectl --server=http://localhost:8001 apply -f deployment-filled.yaml"
                 sh "sudo kubectl --server=http://localhost:8001 delete service devsecops-service"
                 sh "sudo kubectl --server=http://localhost:8001 expose deployment devsecops --type=NodePort --name=devsecops-service
+    ```markdown
+--port=3000"
+                sh 'sudo kubectl --server=http://localhost:8001 rollout status deployment/devsecops'
+            }
+        }
+    }
+    ```
+
+    ![Deploy to Kubernetes](images/deploy-to-kubernetes.png)
+
+3. **Start Minikube**:
+    ```bash
+    minikube start
+    ```
+
+    ![Start Minikube](images/start-minikube.png)
+
+4. **Run `kubectl proxy`**:
+    ```bash
+    kubectl proxy
+    ```
+
+    ![Run kubectl proxy](images/kubectl-proxy.png)
+
+5. **Add `deployment.yaml` to Repository**:
+    - Create a `deployment.yaml` in your repository:
+
+    ```yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: devsecops
+    spec:
+      selector:
+        matchLabels:
+          app: devsecops
+      replicas: 3
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxUnavailable: 1
+          maxSurge: 1
+      template:
+        metadata:
+          labels:
+            app: devsecops
+            version: "1.0"
+        spec:
+          containers:
+          - name: devsecops
+            image: ${IMAGE_TAG}
+            ports:
+            - containerPort: 80
+    ```
+
+    ![Add Deployment YAML](images/add-deployment-yaml.png)
+
+## Final Pipeline Code
+
+Ensure your final Jenkins pipeline code integrates all stages:
+
+```groovy
+pipeline {
+    agent any
+    tools{
+        jdk 'jdk-17'
+        nodejs 'nodejs'
+    }
+    environment {
+        SCANNER_HOME = tool 'sonar-scanner'
+        IMAGE_TAG = "user203/demo:${BUILD_NUMBER}"
+    }
+    stages {
+        stage('clean workspace'){
+            steps{
+                cleanWs()
+            }
+        }
+        stage('Checkout from Git'){
+            steps{
+                git 'https://github.com/user-203/DevSecOps.git'
+            }
+        }
+        stage("Sonarqube Analysis "){
+            steps{
+                withSonarQubeEnv('sonar-server') {
+                    sh '''
+                        $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=devsecops \
+                        -Dsonar.projectKey=devsecops
+                    '''
+                }
+            }
+        }
+        stage("quality gate"){
+            steps {
+                script {
+                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar_cred'
+                }
+            }
+        }
+        stage('Install Dependencies') {
+            steps {
+                sh "npm install"
+            }
+        }
+        stage('OWASP FS SCAN') {
+            steps {
+                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
+                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+            }
+        }
+        stage('TRIVY FS SCAN') {
+            steps {
+                sh "trivy fs . > trivyfs.txt"
+            }
+        }
+        stage("Docker Build & Push"){
+            steps{
+                script{
+                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker'){
+                        sh "docker container prune -f"
+                        sh "docker build -t ${IMAGE_TAG} ."
+                        sh "docker push ${IMAGE_TAG}"
+                    }
+                }
+            }
+        }
+        stage("TRIVY"){
+            steps{
+                sh "trivy image --timeout 15m --scanners vuln user/demo:latest > trivy.txt"
+            }
+        }
+        stage('Deploy to k8s'){
+            steps{
+                withKubeConfig(caCertificate: '', clusterName: '', contextName: '', credentialsId: 'k8s', namespace: '', restrictKubeConfigAccess: false, serverUrl: '') {
+                    sh "envsubst < deployment.yaml > deployment-filled.yaml"
+                    sh "cat deployment-filled.yaml"
+                    sh "sudo kubectl --server=http://localhost:8001 apply -f deployment-filled.yaml"
+                    sh "sudo kubectl --server=http://localhost:8001 delete service devsecops-service"
+                    sh "sudo kubectl --server=http://localhost:8001 expose deployment devsecops --type=NodePort --name=devsecops-service --port=3000"
+                    sh 'sudo kubectl --server=http://localhost:8001 rollout status deployment/devsecops'
+                }
+            }
+        }
+    }
+}
+```
+
+![Final Pipeline Code](images/final-pipeline-code.png)
+
+## Build and Outcome
+
+1. **Build Pipeline**:
+    - Go to Jenkins, click on **Build Now** for the pipeline.
+    - Monitor the progress.
+
+    ![Build Pipeline](images/build-pipeline.png)
+
+2. **Expected Outcome**:
+    - You will have configured a comprehensive DevSecOps pipeline.
+    - The pipeline will:
+      - Analyze code quality with SonarQube.
+      - Scan for vulnerabilities using OWASP and Trivy.
+      - Build and push Docker images.
+      - Deploy to a Kubernetes cluster.
+
+    ![Pipeline Outcome](images/pipeline-outcome.png)
+
+## Conclusion
+
+You have successfully set up a DevSecOps pipeline integrating Jenkins, Docker, Minikube, and security tools. This pipeline automates the process of building, testing, securing, and deploying your application, enhancing both efficiency and security.
+
+## Resources
+
+- [Docker Documentation](https://docs.docker.com/)
+- [Minikube Documentation](https://minikube.sigs.k8s.io/docs/)
+- [Jenkins Documentation](https://www.jenkins.io/doc/)
+- [SonarQube Documentation](https://docs.sonarqube.org/latest/)
+- [Trivy Documentation](https://github.com/aquasecurity/trivy)
+- [OWASP Dependency-Check](https://owasp.org/www-project-dependency-check/)
+
+## Troubleshooting
+
+- **SonarQube not starting**: Ensure the container ports are correctly mapped and SonarQube has sufficient resources.
+- **Jenkins not building**: Check Jenkins logs for errors and validate the pipeline configuration.
+- **Docker issues**: Verify Docker is installed and the daemon is running.
+- **Kubernetes deployment failures**: Validate your `deployment.yaml` configuration and ensure Minikube is running.
+
+---
+
+This README should serve as a comprehensive guide to setting up and running a DevSecOps pipeline. Make sure to include images in the `images` directory and reference them correctly in the markdown.
+
